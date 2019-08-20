@@ -233,6 +233,7 @@ export class Island {
 
     // Referencing factories by ID here for possible additional language support
     // Farmers
+    this.AddFactoryChain(120020, saveInfo); // Market    
     this.AddFactoryChain(1010278, saveInfo); // Fishery    
     this.AddFactoryChain(1010294, saveInfo); // Schnapps
     this.AddFactoryChain(1010315, saveInfo); // Knitter

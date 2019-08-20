@@ -48,7 +48,7 @@ export class PopulationLevel extends PopulationLevelRaw {
     ShowUnused: boolean
     
     GetPopulation(factories: Factory[]): number {
-        let supplyWeight = 5;
+        let supplyWeight = 0;
 
         let enabledOutputProductIDs = {};
         for (var i = 0; i < factories.length; i++) {
