@@ -108,7 +108,9 @@
         <span class="tradeColumn">Trade</span>
       </div>
       <div *ngFor="let factory of island.GetColumnLayouts()[i]" [className]="factory.GetSatisfactionClass(island.PopulationLevels)
-       + (factory.ID === FocusedFactoryID ? ' focusedFactory' : '')">
+       + (factory.ID === FocusedFactoryID ? ' focusedFactory' : '')"
+       [style.display]="!factory.ParentFactory || factory.ParentFactory.BuiltCount > 0 ? 'block' : 'none'"
+       >
         <label>
           <span class="factoryNameColumn">        
             <span *ngIf="factory.ParentFactory" class="indent"></span>
