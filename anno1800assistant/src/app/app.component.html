@@ -109,12 +109,13 @@
       </div>
       <div *ngFor="let factory of island.GetColumnLayouts()[i]" [className]="factory.GetSatisfactionClass(island.PopulationLevels)
        + (factory.ID === FocusedFactoryID ? ' focusedFactory' : '')"
-       [style.display]="!factory.ParentFactory || factory.ParentFactory.BuiltCount > 0 ? 'block' : 'none'"
+       [style.display]="!factory.ParentFactory || (factory.ParentFactoryOrThisRecursive.Enabled && factory.ParentFactoryOrThisRecursive.BuiltCount > 0) ? 'block' : 'none'"
        >
         <label>
           <span class="factoryNameColumn">        
             <span *ngIf="factory.ParentFactory" class="indent"></span>
             <span *ngIf="factory.ParentFactory && factory.ParentFactory.ParentFactory" class="indent"></span>
+            <span *ngIf="factory.ParentFactory && factory.ParentFactory.ParentFactory && factory.ParentFactory.ParentFactory.ParentFactory" class="indent"></span>
             <span>{{ factory.Name }}</span>
           </span>
           <span class="enabledColumn">
@@ -135,6 +136,18 @@
         </span>
         <span class="tradeColumn" [attr.title]="'Total worldwide trade balance for ' + factory.Name + ' is ' + GetTradeBalance(factory.ID)">
           <input [className]="'hiddenForPublicService form-control' + (IsTradeBalanced(factory.ID) ? '' : ' unbalancedTrade')" type="number" [(ngModel)]="factory.TradeBalance" [disabled]="!factory.Enabled" (focus)="SetFocusedFactoryID(factory.ID)" (focusout)="ClearFocusedFactoryID()" />
+        </span>
+        <span class="items" [style.display]="factory.Enabled && factory.BuiltCount > 0 && factory.Items.length ? 'block' : 'none'">
+          <span *ngFor="let item of factory.Items" class="item">
+            <label>
+              <span class="itemNameColumn">
+                {{ item.Name }}
+              </span>
+              <span class="enabledColumn">
+                <input type="checkbox" [(ngModel)]="item.Enabled" (ngModelChange)="island.ToggleItem(factory, item, undefined)" />
+              </span>
+            </label>
+          </span>
         </span>
       </div>
     </span>

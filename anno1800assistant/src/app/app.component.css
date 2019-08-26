@@ -102,6 +102,29 @@ input[type="number"] {
     text-align: left;
 }
 
+.items {
+    display:block;
+    border-top: 1px dashed lightgray;
+    text-align:left;
+    padding-top:8px;
+    margin-right:8px;
+    color:gray; /* FIXME: toggle between red / green based on enabled? */
+}
+
+.item {
+    display:block;
+}
+
+.item .itemNameColumn {
+    width: 200px;
+    display: inline-block;
+    text-align: left;
+    padding-left: 8px;
+}
+.item .enabledColumn{
+    vertical-align: top;
+}
+
 .factoryHeader {
     font-weight: bold;
     text-align: center;

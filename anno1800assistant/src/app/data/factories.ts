@@ -1,4 +1,5 @@
 import { PopulationLevel } from "./populations";
+import { Items, Item, ItemSaveInfo } from './items';
 
 export class Factories {
     private getRaw(): FactoryRaw[] {
@@ -41,8 +42,10 @@ export class Factory extends FactoryRaw {
         this.Outputs = raw.Outputs;
         this.IsOldWorld = raw.IsOldWorld;
         this.IsNewWorld = raw.IsNewWorld;
+        this.Items = new Items().AllItems.filter(i => i.ItemEffectTargets.includes(this.ID)).map(i => new Item(i));
     }
 
+    Items: Item[] = []
     ChildFactories: Factory[] = []
     ParentFactory?: Factory = null
 
@@ -84,7 +87,7 @@ export class Factory extends FactoryRaw {
         for (var i = 0; i < allPopulationLevels.length; i++) {
             amountRequiredPerMinute += allPopulationLevels[i].GetProductRequirement(outputProductID);
         }        
-        
+
         // Requirements appear to be in tons per second, so multiply by 60
         amountRequiredPerMinute *= 60;
 
@@ -92,13 +95,13 @@ export class Factory extends FactoryRaw {
         if (this.ParentFactory) {
             let parentInput = this.ParentFactory.Inputs.filter(i => i.ProductID === outputProductID)[0];
             if (parentInput) {
-                let parentRequiredFactories = this.ParentFactory.GetRequiredCount(allPopulationLevels);
+                let parentRequiredFactories = this.ParentFactory.BuiltCount * (this.ParentFactory.Productivity / 100);
                 let parentCycleTime = this.ParentFactory.CycleTime > 0 ? this.ParentFactory.CycleTime : 30;                
                 let childParentFactoryRatio = parentInput.Amount / this.Outputs[0].Amount * cycleTime / parentCycleTime;
                 requiredFactoriesFromParent = parentRequiredFactories * childParentFactoryRatio;
             }
         }
-        
+
         let producedPerMinute = this.Outputs[0].Amount * 60 / cycleTime;
 
         return Math.round((amountRequiredPerMinute / producedPerMinute + requiredFactoriesFromParent) * 100 * 100 / this.Productivity) / 100;
@@ -124,14 +127,24 @@ export class Factory extends FactoryRaw {
         let required = this.GetRequiredCount(allPopulationLevels);
         let satisfaction = this.BuiltCount + this.TradeBalance;
 
-        if(satisfaction > required) {
-            result = result + ' satisfied';
-        }
-        else if (required - satisfaction < 0.5) {
-            result = result + ' slightlyUnsatisfied';
+        if (this.ParentFactory) { 
+            if(satisfaction >= required) {
+                result = result + ' satisfied';
+            }
+            else {
+                result = result + ' unsatisfied';
+            }
         }
         else {
-            result = result + ' unsatisfied';
+            if(satisfaction > required) {
+                result = result + ' satisfied';
+            }
+            else if (required - satisfaction < 0.5) {
+                result = result + ' slightlyUnsatisfied';
+            }
+            else {
+                result = result + ' unsatisfied';
+            }
         }
 
         return result;
@@ -150,13 +163,18 @@ export class Factory extends FactoryRaw {
     }
 
     Save(): FactorySaveInfo {
+        let items: ItemSaveInfo[] = [];
+        this.Items.forEach(function(item: Item) {
+            items.push(item.Save());
+        });
         return {
             FactoryID: this.ID,
-            ParentFactoryID: this.ParentFactory ? this.ParentFactory.ID : null,
+            ParentFactoryID: this.ParentFactoryOrThisRecursive.ID,
             Enabled: this.Enabled,
             BuiltCount: this.BuiltCount,
             Productivity: this.Productivity,
-            TradeBalance: this.TradeBalance
+            TradeBalance: this.TradeBalance,
+            Items: items
         };
     }
 }
@@ -173,4 +191,20 @@ export class FactorySaveInfo {
     BuiltCount: number
     Productivity: number
     TradeBalance: number
+    Items: ItemSaveInfo[]
 }
+
+/*
+TODO:
+- When building is built, show amount of sub-chains needed for max efficiency (accounting for altered productivity of the base factory), f.e.x: schnapps at 200% productivity requires 2 schnapps farms for full productivity
+- show legendary npc's that modify input / add output affecting the building chain / double the output of the factory (ignore electricity and productivity boosts, users can still fill that in)
+- fix trade calculation??  i think its bugged
+- set target for trade? this way we can show the amount of incoming mines per island and glassmakers per island?
+
+
+
+- add mines as source (new option Mines at the top near the residence input?)
+- add sand mine / glassmakers as source (new option Mines at the top near the residence input?)
+- add Caoutchouc Plantation as source (new option Farms near the residence input?)
+- maybe as selectables where you can select the factory chain you want on the island? makes it more dynamic and thus complicated to built, but it scales the best
+*/

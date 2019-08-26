@@ -1,6 +1,7 @@
 import { Component, OnInit, HostListener, OnChanges, ElementRef, ViewChild } from '@angular/core';
 import { PopulationLevelsFactory, PopulationLevel, PopulationLevelSaveInfo } from './data/populations';
-import { Factory, Factories, FactorySaveInfo } from './data/factories';
+import { Factory, Factories, FactorySaveInfo, FactoryIngredient } from './data/factories';
+import { Item, Items } from './data/items';
 
 @Component({
   selector: 'app-root',
@@ -121,14 +122,7 @@ export class AppComponent implements OnInit {
 
       for (var fact = 0; fact < island.Factories.length; fact++) {
         let factory = island.Factories[fact];
-        factories.push({
-          FactoryID: factory.ID,
-          ParentFactoryID: factory.ParentFactoryOrThisRecursive.ID,
-          BuiltCount: factory.BuiltCount,
-          Productivity: factory.Productivity,
-          Enabled: factory.Enabled,
-          TradeBalance: factory.TradeBalance
-        });
+        factories.push(factory.Save());
       }
 
       save.push({
@@ -280,13 +274,112 @@ export class Island {
     // this.addFactoryChain(1010342); // Cigars
   }
 
+  ToggleItem(factory: Factory, item: Item, saveInfo: IslandSaveInfo) {
+    // TODO: cleanup
+    function GetChildFactoryForInput(factory: Factory, input: number) {
+      return factory.ChildFactories.filter(function(ChildFactory) {
+        return ChildFactory.Outputs.filter(o => o.ProductID === input).length > 0;
+      })[0];
+    }
+    var self = this;
+    function RemoveFactoryFromFactoriesAndFactoryGroup(Factory: Factory, FactoryGroup: Factory[]) {
+      self.Factories.splice(self.Factories.indexOf(Factory), 1);
+      FactoryGroup.splice(FactoryGroup.indexOf(Factory), 1);
+      if(Factory.ChildFactories) {
+        Factory.ChildFactories.forEach(function(Factory: Factory) {
+          RemoveFactoryFromFactoriesAndFactoryGroup(Factory, FactoryGroup);
+        });
+      }
+    }
+    function EnableFactoryAndChildFactories(factory: Factory) {
+      factory.Enabled = factory.ParentFactory.Enabled;
+      factory.ChildFactories.forEach(function(childFactory: Factory) {
+        EnableFactoryAndChildFactories(childFactory);
+      })
+    }
+    function GetFactoryGroupContainingFactory(factoryGroups: Factory[][], factory: Factory) {
+      return factoryGroups.filter(function(factoryGroup) {
+        return factoryGroup.filter(function(factoryInFactoryGroup) {
+          return factoryInFactoryGroup.ID === factory.ID 
+              && factoryInFactoryGroup.ParentFactoryOrThisRecursive.ID === factory.ParentFactoryOrThisRecursive.ID;
+        }).length > 0;
+      })[0];
+    }
+    if(item.Enabled) {
+      item.ReplacedInputs.forEach(function(ReplacedInput) {
+        let ChildFactory = GetChildFactoryForInput(factory, ReplacedInput.OldInput);
+        let ReplacementFactory = new Factory(new Factories().AllFactories.filter(function(f) {
+          return f.Outputs.filter(o => o.ProductID === ReplacedInput.NewInput).length > 0;
+        })[0]);
+        let FactoryGroup = GetFactoryGroupContainingFactory(this.FactoryGroups, ChildFactory);
+        RemoveFactoryFromFactoriesAndFactoryGroup(ChildFactory, FactoryGroup);
+        factory.Inputs.forEach(function(input: FactoryIngredient) {
+          if(input.ProductID === ReplacedInput.OldInput) {
+            input.ProductID = ReplacedInput.NewInput;
+          }
+        });
+        factory.ChildFactories.push(ReplacementFactory);
+        ReplacementFactory.ParentFactory = factory;
+        this.ApplyFactorySaveInfo(ReplacementFactory, saveInfo);
+        this.Factories.push(ReplacementFactory);
+        FactoryGroup.push(ReplacementFactory);
+        this.ProcessChildFactories(ReplacementFactory, FactoryGroup, saveInfo);
+        EnableFactoryAndChildFactories(ReplacementFactory);
+      }, this);
+    } else {
+      item.ReplacedInputs.forEach(function(ReplacedInput) {
+        let ChildFactory = GetChildFactoryForInput(factory, ReplacedInput.NewInput);
+        let ReplacementFactory = new Factory(new Factories().AllFactories.filter(function(f) {
+          return f.Outputs.filter(o => o.ProductID === ReplacedInput.OldInput).length > 0;
+        })[0]);
+        let FactoryGroup = GetFactoryGroupContainingFactory(this.FactoryGroups, ChildFactory);
+        RemoveFactoryFromFactoriesAndFactoryGroup(ChildFactory, FactoryGroup);
+        factory.Inputs.forEach(function(input: FactoryIngredient) {
+          if(input.ProductID === ReplacedInput.NewInput) {
+            input.ProductID = ReplacedInput.OldInput;
+          }
+        });
+        factory.ChildFactories.push(ReplacementFactory);
+        ReplacementFactory.ParentFactory = factory;
+        this.ApplyFactorySaveInfo(ReplacementFactory, saveInfo);
+        this.Factories.push(ReplacementFactory);
+        FactoryGroup.push(ReplacementFactory);
+        this.ProcessChildFactories(ReplacementFactory, FactoryGroup, saveInfo);
+        EnableFactoryAndChildFactories(ReplacementFactory);
+      }, this);
+    }
+  }
 
-  AddFactoryChain(factoryID: number, saveInfo: IslandSaveInfo) {
-    let factory = new Factory(new Factories().AllFactories.filter(f => f.ID === factoryID)[0]);
-
+  ApplyFactorySaveInfo(factory: Factory, saveInfo: IslandSaveInfo) {
     if (saveInfo) {
       let savedFactoryInfos = saveInfo.Factories.filter(f => f.FactoryID === factory.ID);
       let savedFactoryInfo = savedFactoryInfos[0];
+
+      if (savedFactoryInfos.length > 1) {
+        let matchingSavedFactoryInfo = savedFactoryInfos.filter(f => f.ParentFactoryID === factory.ParentFactoryOrThisRecursive.ID)[0];
+        
+        // Doing a check here to make sure we matched to be backwards-compatible with old saves. This can eventually be removed.
+        if (matchingSavedFactoryInfo) {
+          savedFactoryInfo = matchingSavedFactoryInfo;
+        }
+      }
+
+      if (savedFactoryInfo) {
+        factory.Enabled = savedFactoryInfo.Enabled;
+        factory.BuiltCount = savedFactoryInfo.BuiltCount;
+        factory.Productivity = savedFactoryInfo.Productivity;
+        factory.TradeBalance = savedFactoryInfo.TradeBalance;
+      }
+    }
+  }
+
+  AddFactoryChain(factoryID: number, saveInfo: IslandSaveInfo) {
+    let factory = new Factory(new Factories().AllFactories.filter(f => f.ID === factoryID)[0]);
+    let savedFactoryInfo: FactorySaveInfo;
+
+    if (saveInfo) {
+      let savedFactoryInfos = saveInfo.Factories.filter(f => f.FactoryID === factory.ID);
+      savedFactoryInfo = savedFactoryInfos[0];
 
       if (savedFactoryInfos.length > 1) {
         let matchingSavedFactoryInfo = savedFactoryInfos.filter(f => f.ParentFactoryID === factory.ParentFactoryOrThisRecursive.ID)[0];
@@ -309,8 +402,15 @@ export class Island {
     let group = [factory];
     this.ProcessChildFactories(factory, group, saveInfo);
     this.FactoryGroups.push(group);
-  }
 
+    if (savedFactoryInfo) {
+      savedFactoryInfo.Items.filter(i => i.Enabled).forEach(function(itemSaveInfo) {
+        let item = factory.Items.filter(i => i.ID === itemSaveInfo.ItemID)[0];
+        item.Enabled = itemSaveInfo.Enabled;
+        this.ToggleItem(factory, item, saveInfo);
+      }, this);
+    }
+  }
 
   ProcessChildFactories(parentFactory: Factory, group: Factory[], saveInfo: IslandSaveInfo) {
     for (var i = 0; i < parentFactory.Inputs.length; i++) {
@@ -350,6 +450,7 @@ export class Island {
 
         parentFactory.ChildFactories.push(newFactory);
         newFactory.ParentFactory = parentFactory;
+        newFactory.Enabled = parentFactory.Enabled;
         this.Factories.push(newFactory);
         group.push(newFactory);
         this.ProcessChildFactories(newFactory, group, saveInfo);
