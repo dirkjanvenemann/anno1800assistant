@@ -172,9 +172,13 @@ export class AppComponent implements OnInit {
   }
 
   GetTradeBalance(factoryID: number): number {
+    // FIXME: its really slow when you have a large number of islands?
+    return 0;
     let balance = 0;
 
     for (var i = 0; i < this.Islands.length; i++) {
+      // console.log(factoryID);
+      // console.log(new Factory(new Factories().AllFactories.filter(f => f.ID === factoryID)[0]).Name);
       let factory = this.Islands[i].Factories.filter(f => f.ID === factoryID)[0];
       balance += (factory.Productivity * factory.TradeBalance / 100);
     }
@@ -403,7 +407,7 @@ export class Island {
     this.ProcessChildFactories(factory, group, saveInfo);
     this.FactoryGroups.push(group);
 
-    if (savedFactoryInfo) {
+    if (savedFactoryInfo && savedFactoryInfo.Items) {
       savedFactoryInfo.Items.filter(i => i.Enabled).forEach(function(itemSaveInfo) {
         let item = factory.Items.filter(i => i.ID === itemSaveInfo.ItemID)[0];
         item.Enabled = itemSaveInfo.Enabled;
