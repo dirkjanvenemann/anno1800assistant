@@ -189,6 +189,12 @@ export class AppComponent implements OnInit {
   IsTradeBalanced(factoryID: number): boolean {
     return Math.abs(this.GetTradeBalance(factoryID)) < 0.02;
   }
+
+  ToggleVisibilityAllIslands() {
+    for (var i = 0; i < this.Islands.length; i++) {
+      this.Islands[i].ToggleVisibility();
+    }
+  }
 }
 
 export class SaveData {
@@ -208,6 +214,11 @@ export class Island {
   Factories: Factory[]
   FactoryGroups: Factory[][]
   IsMinimized: boolean
+  IsVisible: boolean
+
+  ToggleVisibility() {
+    this.IsVisible = !this.IsVisible;
+  }
 
   ToggleMinimized() {
     this.IsMinimized = !this.IsMinimized;

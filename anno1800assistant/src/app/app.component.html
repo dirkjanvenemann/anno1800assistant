@@ -1,4 +1,17 @@
-<span *ngFor="let island of Islands; index as i" class="island">
+<br />
+<span type="button" class="btn btn-primary bottomButton" (click)="ToggleVisibilityAllIslands()">
+  <span class="fa fa-eye"></span> 
+  <span> Toggle visibility for all Islands </span>
+</span>
+<span *ngFor="let island of Islands; index as i">
+  <span type="button" class="btn btn-primary bottomButton" (click)="island.ToggleVisibility()" [style.opacity]="island.IsVisible ? '50%' : '100%'">
+    <span class="fa fa-eye"></span>
+    <span> {{ island.Name }}</span>
+  </span>
+</span>
+<br />
+
+<span *ngFor="let island of Islands; index as i" class="island" [style.display]="island.IsVisible ? 'none' : 'inline-block'">
   <div class="islandHeaderWrapper">
     <span class="pull-right buttonTray">
       <button type="button" class="btn btn-primary btn-sm" [disabled]="i === 0" (click)="MoveIslandUp(i)">
@@ -153,6 +166,8 @@
     </span>
   </div>
 </span>
+
+<br />
 
 <span type="button" class="btn btn-primary addIsland" (click)="AddIsland()">
   <span class="fa fa-plus"></span>
